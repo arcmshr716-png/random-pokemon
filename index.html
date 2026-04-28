@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ランダムポケモン</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 40px;
+      width: 340px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      user-select: none;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .card:active {
+      transform: translateY(0px) scale(0.98);
+    }
+
+    .hint {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 24px;
+      letter-spacing: 0.05em;
+    }
+
+    .pokemon-img-wrapper {
+      width: 180px;
+      height: 180px;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+
+    .pokemon-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
+      transition: opacity 0.3s;
+      image-rendering: pixelated;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .pokemon-id {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 6px;
+      letter-spacing: 0.1em;
+    }
+
+    .pokemon-name {
+      font-size: 32px;
+      font-weight: 700;
+      text-transform: capitalize;
+      margin-bottom: 14px;
+      letter-spacing: 0.02em;
+    }
+
+    .types {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .type-badge {
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .stat-bar-track {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+
+    .empty-state {
+      padding: 40px 0;
+    }
+
+    .empty-state .pokeball {
+      font-size: 64px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .empty-state p {
+      color: rgba(255,255,255,0.5);
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card" id="card" onclick="fetchRandom()">
+  <div class="hint">タップ / クリックでランダム表示</div>
+  <div id="content">
+    <div class="empty-state">
+      <span class="pokeball">⚽</span>
+      <p>クリックしてポケモンを召喚！</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TYPE_COLORS = {
+    normal:   { bg: '#A8A878', text: '#fff' },
+    fire:     { bg: '#F08030', text: '#fff' },
+    water:    { bg: '#6890F0', text: '#fff' },
+    electric: { bg: '#F8D030', text: '#333' },
+    grass:    { bg: '#78C850', text: '#fff' },
+    ice:      { bg: '#98D8D8', text: '#333' },
+    fighting: { bg: '#C03028', text: '#fff' },
+    poison:   { bg: '#A040A0', text: '#fff' },
+    ground:   { bg: '#E0C068', text: '#333' },
+    flying:   { bg: '#A890F0', text: '#fff' },
+    psychic:  { bg: '#F85888', text: '#fff' },
+    bug:      { bg: '#A8B820', text: '#fff' },
+    rock:     { bg: '#B8A038', text: '#fff' },
+    ghost:    { bg: '#705898', text: '#fff' },
+    dragon:   { bg: '#7038F8', text: '#fff' },
+    dark:     { bg: '#705848', text: '#fff' },
+    steel:    { bg: '#B8B8D0', text: '#333' },
+    fairy:    { bg: '#EE99AC', text: '#fff' },
+  };
+
+  const STAT_COLORS = {
+    hp:              '#FF5959',
+    attack:          '#F5AC78',
+    defense:         '#FAE078',
+    'special-attack':'#9DB7F5',
+    'special-defense':'#A7DB8D',
+    speed:           '#FA92B2',
+  };
+
+  const STAT_LABELS = {
+    hp:               'HP',
+    attack:           'こうげき',
+    defense:          'ぼうぎょ',
+    'special-attack': 'とくこう',
+    'special-defense':'とくぼう',
+    speed:            'すばやさ',
+  };
+
+  const TOTAL_POKEMON = 1025;
+  let busy = false;
+
+  async function fetchRandom() {
+    if (busy) return;
+    busy = true;
+
+    const id = Math.floor(Math.random() * TOTAL_POKEMON) + 1;
+
+    document.getElementById('content').innerHTML = `
+      <div style="height:240px;display:flex;align-items:center;justify-content:center;font-size:48px">
+        <span style="animation:spin 0.8s linear infinite;display:inline-block">⚙️</span>
+      </div>
+    `;
+
+    try {
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      const data = await res.json();
+
+      const name = data.name;
+      const img = data.sprites.other['official-artwork']?.front_default
+                || data.sprites.front_default;
+      const types = data.types.map(t => t.type.name);
+      const stats = data.stats;
+
+      const typeBadges = types.map(t => {
+        const c = TYPE_COLORS[t] || { bg: '#888', text: '#fff' };
+        return `<span class="type-badge" style="background:${c.bg};color:${c.text}">${t}</span>`;
+      }).join('');
+
+      const statCards = stats.map(s => {
+        const key = s.stat.name;
+        const val = s.base_stat;
+        const color = STAT_COLORS[key] || '#aaa';
+        const pct = Math.min(100, Math.round(val / 255 * 100));
+        return `
+          <div class="stat">
+            <div class="stat-label">${STAT_LABELS[key] || key}</div>
+            <div class="stat-value" style="color:${color}">${val}</div>
+            <div class="stat-bar-track">
+              <div class="stat-bar-fill" style="width:${pct}%;background:${color}"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('content').innerHTML = `
+        <div class="pokemon-img-wrapper">
+          <img class="pokemon-img" src="${img}" alt="${name}" onload="this.style.opacity=1" style="opacity:0;transition:opacity 0.4s">
+        </div>
+        <div class="pokemon-id">#${String(data.id).padStart(4, '0')}</div>
+        <div class="pokemon-name">${name}</div>
+        <div class="types">${typeBadges}</div>
+        <div class="stats">${statCards}</div>
+      `;
+    } catch (e) {
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <span class="pokeball">😵</span>
+          <p>取得失敗…もう一回クリックしてや</p>
+        </div>
+      `;
+    }
+
+    busy = false;
+  }
+</script>
+</body>
+</html>
